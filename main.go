@@ -2,12 +2,28 @@ package main
 
 import (
 	"encoding/csv"
+	"flag"
 	"fmt"
 	"log"
 	"os"
+	"strings"
+	"time"
 )
 
-func readCsvData(path string) ([][]string, error) {
+type problem struct {
+	ques string
+	ans  string
+}
+
+func parseRecords(records [][]string) []problem {
+	parsedRecords := make([]problem, len(records))
+	for i, record := range records {
+		parsedRecords[i] = problem{record[0], strings.TrimSpace(record[1])}
+	}
+	return parsedRecords
+}
+
+func readCsvData(path string) []problem {
 	f, err := os.Open(path)
 	if err != nil {
 		log.Fatal(err)
@@ -18,19 +34,28 @@ func readCsvData(path string) ([][]string, error) {
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	return records, err
+	parsedRecords := parseRecords(records)
+	return parsedRecords
 }
 
-func conductQuiz(records [][]string) int {
+func quizTimer(sec int, scoreRef *int) {
+	t := time.NewTimer(time.Duration(sec) * time.Second)
+	<-t.C
+	fmt.Println("\n\nTimes up!!!")
+	fmt.Println("Your score = ", *scoreRef)
+	os.Exit(0)
+}
+
+func conductQuiz(records []problem, duration int) int {
 	score := 0
 	var sol string
-	for i := 0; i < len(records); i++ {
-		fmt.Println("#Problem", i, ":", records[i][0])
-		fmt.Print("Your answer: ")
+
+	go quizTimer(duration, &score)
+	for i, record := range records {
+		fmt.Printf("Problem #%d: %s \nYour answer:", i, record.ques)
 		fmt.Scan(&sol)
 		fmt.Println()
-		if sol == records[i][1] {
+		if sol == record.ans {
 			score++
 		}
 	}
@@ -38,10 +63,12 @@ func conductQuiz(records [][]string) int {
 }
 
 func main() {
-	records, err := readCsvData("./problems.csv")
-	if err != nil {
-		log.Fatal(err)
-	}
-	score := conductQuiz(records)
+	csvFileName := flag.String("csv", "problems.csv", "a csv file in ques,ans foramt")
+	duration := flag.Int("duration", 10, "duration of the quiz")
+	flag.Parse()
+
+	records := readCsvData(*csvFileName)
+
+	score := conductQuiz(records, *duration)
 	fmt.Println("Your score is ", score)
 }
